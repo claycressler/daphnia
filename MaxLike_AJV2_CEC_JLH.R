@@ -5,9 +5,7 @@
 rm(list = ls())
 
 library(magrittr)
-library(bbmle)
 library(pomp)
-require(pomp)
 
 ## load data
 #setwd("~/Dropbox/Alaina/MaxLikelihood")
@@ -110,7 +108,7 @@ nll2 <- function(params, data, mod) {
         ## You can specify as many different feeding models as you want
         ## I'll just use the two hypothetical models above (one with an
         ## exponential change in feeding with spores, and one with a linear
-        ## change) as an example: 
+        ## change) as an example:
         ## JLH 13 Jan 2020: I really thought this should be negative exponential function... shoot, I don't remember why you changed this??
         ## CEC 15 Jan 2020: the parameter a can take on any value from -Inf to Inf, so in practice, it likely will be a negative exponential (because a will most likely be a negative number), but I didn't see any reason to force a to be a negative number.
         f_pred <- switch(mod,
@@ -124,35 +122,18 @@ nll2 <- function(params, data, mod) {
 
         ## Otherwise, estimate the amount of algae that is remaining
         else {
-            ## CEC: there is no column in the dataframe for plate_treatment
-            ## so I have commented this out. I think this is unnecessary since
-            ## the column "A0" seems to already be plate-specific. The only way
-            ## that this is inaccurate is if individuals in a genotype-by-spore
-            ## treatment were analyzed on different plates. If that is the case,
-            ## then there should be multiple A0 values for any genotype-by-spore
-            ## treatment, which is not the case in the dataset I have
 
-            for (cid in unique(data2$plate_treatment)){
-                data3 <- subset(data2, plate_treatment == cid) ## CEC: this line wouldn't make sense because it's subsetting the full dataset ('data') rather than 'data2', which has already been subsetted for this particular genotype; importantly, data2 was used above in the calculation of f_pred. If there actually is a plate_treatment variable, you will want to compute f_pred on data3, so that the f_pred values match with the data3$A0 values for computing exp.A1 below.
-                ## JLH 13 Jan 2020: This was my attempt to grab the plate-specific (i.e., genotye-spore combination) control .....
-                ## the issue, I think, is that if the data is already subsetted for the genotype, that subset of data doesn't include the control values  - but that might not be the case.
-                ## CEC 15 Jan 2020: If you loop cid through all of the plate_treatment values, you will include a bunch of values that aren't found in data2, which only includes the plate_treatment values for that particular genotype. So you have to subset data2 and pull out only the plate_treatments for data2
-                
-                ## Compute the expected amount of food remaining, assuming that food in the vial changes according to the ODE dA/dt = -f_pred*A, which has the solution A(t) = A(0)*exp(-f_pred*t). Then, after T time units, A(T) = A(0)*exp(-f_pred*T). Taking logarithms, you have log(A(T)) = log(A(0)) - f_pred*T
-                ## JLH: 13 Jan 2020 Changed from data2 to data3  ####
-                ## CEC 15 Jan 2020: This won't work because f_pred has as many values as data2 had rows, but now you've subsetted to data3, which has fewer rows. So this will compute, but it won't be right.
-                exp.A1 <- log(data3$A0) - f_pred*T
+            ## Compute the expected amount of food remaining, assuming that food in the vial changes according to the ODE dA/dt = -f_pred*A, which has the solution A(t) = A(0)*exp(-f_pred*t). Then, after T time units, A(T) = A(0)*exp(-f_pred*T). Taking logarithms, you have log(A(T)) = log(A(0)) - f_pred*T
+            exp.A1 <- log(data2$A0) - f_pred*T
 
             ## compute the expected probability of infection, given feeding and per-spore susceptibility
-            lambda <- 1 - exp(-u*f_pred*data3$P0)             #### JLH: 13 Jan 2020 Changed from data2 to data3  ####
-            }
-
+            lambda <- 1 - exp(-u*f_pred*data2$P0)
             ## Compute the negative log-liklihood of observing log(data2$A1) algae remaining, under the expectation exp.A1, and the negative log-likelihood of observing the binary infection outcome data2$I1, under the expected probability of infection lambda; sum these two NLLs, and add that sum to the total NLL across all genotypes
-            nll <- -sum(dnorm(log(data3$A1),             #### JLH: 13 Jan 2020 Changed from data2 to data3  ####
+            nll <- -sum(dnorm(log(data2$A1),
                               mean = exp.A1,
                               sd = sd,
                               log = TRUE) %>% sum,
-                        dbinom(data3$I1,  #### JLH: 13 Jan 2020 Changed from data2 to data3  ####
+                        dbinom(data2$I1,
                                size = 1,
                                prob = lambda,
                                log = TRUE) %>% sum) + nll
@@ -177,7 +158,7 @@ nll2 <- function(params, data, mod) {
 ## }
 apply(pars,
       1,
-      function(p) nll2(unlist(p), data, mod ='mod1')) -> ll #### JLH: 13 Jan 2020: This should stay data? 
+      function(p) nll2(unlist(p), data, mod ='mod1')) -> ll #### JLH: 13 Jan 2020: This should stay data?
 ##JLH the error message says object f not found....
 ## CEC: This is because there was a spot in nll2 that required an object named 'f' but no such variable existed. Whenever you see this error it means that there's something being called inside your function that R doesn't have a value for.
 
