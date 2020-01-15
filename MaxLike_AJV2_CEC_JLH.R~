@@ -4,13 +4,15 @@
 
 rm(list = ls())
 
+
+
 library(magrittr)
 library(bbmle)
 library(pomp)
 require(pomp)
 
 ## load data
-#setwd("~/Dropbox/Alaina/MaxLikelihood")
+setwd("~/Dropbox/Alaina/MaxLikelihood")
 data <- read.csv("means_4MaxLikelihood_AJV2.csv", header = T, sep = ",")
 names(data)
 ## 'data' is a dataframe with columns:
@@ -18,7 +20,7 @@ names(data)
 ## 'S0' number of susceptible hosts (does not vary)
 ## 'P0' parasite/pathogen spore dose
 ## 'Tube' vial number
-## 'plate_treatment' an identifier for each clone-by-spore treatment
+## 'CloneSporeID' an identifier for each clone-by-spore treatment
 ## 'A0' Chla reading in a sample WITHOUT an animal: control reading - note, each genotyope-spore combination has a unique control reading
 ## 'mm' gives the size of the animal (convert to surface area: L^2)
 ## 'A1' Chla reading in a sample WITH an animal
@@ -111,8 +113,7 @@ nll2 <- function(params, data, mod) {
         ## I'll just use the two hypothetical models above (one with an
         ## exponential change in feeding with spores, and one with a linear
         ## change) as an example: 
-        ## JLH 13 Jan 2020: I really thought this should be negative exponential function... shoot, I don't remember why you changed this??
-        ## CEC 15 Jan 2020: the parameter a can take on any value from -Inf to Inf, so in practice, it likely will be a negative exponential (because a will most likely be a negative number), but I didn't see any reason to force a to be a negative number.
+        #### JLH 13 Jan 2020: I really thought this should be negative exponential function... shoot, I don't remember why you changed this??
         f_pred <- switch(mod,
                          mod1=fhat*(data2$mm^2)*exp(a*data2$P0),
                          mod2=fhat*(data2$mm^2)*(1+a*data2$P0))
@@ -132,16 +133,16 @@ nll2 <- function(params, data, mod) {
             ## then there should be multiple A0 values for any genotype-by-spore
             ## treatment, which is not the case in the dataset I have
 
-            for (cid in unique(data2$plate_treatment)){
-                data3 <- subset(data2, plate_treatment == cid) ## CEC: this line wouldn't make sense because it's subsetting the full dataset ('data') rather than 'data2', which has already been subsetted for this particular genotype; importantly, data2 was used above in the calculation of f_pred. If there actually is a plate_treatment variable, you will want to compute f_pred on data3, so that the f_pred values match with the data3$A0 values for computing exp.A1 below.
-                ## JLH 13 Jan 2020: This was my attempt to grab the plate-specific (i.e., genotye-spore combination) control .....
-                ## the issue, I think, is that if the data is already subsetted for the genotype, that subset of data doesn't include the control values  - but that might not be the case.
-                ## CEC 15 Jan 2020: If you loop cid through all of the plate_treatment values, you will include a bunch of values that aren't found in data2, which only includes the plate_treatment values for that particular genotype. So you have to subset data2 and pull out only the plate_treatments for data2
-                
-                ## Compute the expected amount of food remaining, assuming that food in the vial changes according to the ODE dA/dt = -f_pred*A, which has the solution A(t) = A(0)*exp(-f_pred*t). Then, after T time units, A(T) = A(0)*exp(-f_pred*T). Taking logarithms, you have log(A(T)) = log(A(0)) - f_pred*T
-                ## JLH: 13 Jan 2020 Changed from data2 to data3  ####
-                ## CEC 15 Jan 2020: This won't work because f_pred has as many values as data2 had rows, but now you've subsetted to data3, which has fewer rows. So this will compute, but it won't be right.
-                exp.A1 <- log(data3$A0) - f_pred*T
+            for (cid in unique(data$plate_treatment)){
+            data3 <- subset(data2, plate_treatment == cid) ## CEC: this line wouldn't make sense because it's subsetting the full dataset ('data') rather than 'data2', which has already been subsetted for this particular genotype; importantly, data2 was used above in the calculation of f_pred. If there actually is a plate_treatment variable, you will want to compute f_pred on data3, so that the f_pred values match with the data3$A0 values for computing exp.A1 below.
+            ## JLH 13 Jan 2020: This was my attempt to grab the plate-specific (i.e., genotye-spore combination) control .....
+            ## the issue, I think, is that if the data is already subsetted for the genotype, that subset of data doesn't include 
+            ## the control values  - but that might not be the case. 
+          
+            
+            ## Compute the expected amount of food remaining, assuming that food in the vial changes according to the ODE dA/dt = -f_pred*A, which has the solution A(t) = A(0)*exp(-f_pred*t). Then, after T time units, A(T) = A(0)*exp(-f_pred*T). Taking logarithms, you have log(A(T)) = log(A(0)) - f_pred*T
+            #### JLH: 13 Jan 2020 Changed from data2 to data3  ####
+            exp.A1 <- log(data3$A0) - f_pred*T
 
             ## compute the expected probability of infection, given feeding and per-spore susceptibility
             lambda <- 1 - exp(-u*f_pred*data3$P0)             #### JLH: 13 Jan 2020 Changed from data2 to data3  ####
